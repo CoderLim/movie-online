@@ -1,5 +1,5 @@
 {
-  "name": "impl",
+  "name": "movie-online",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -36,5 +36,6 @@
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.9",
     "wrangler": "^4.104.0"
-  }
+  },
+  "packageManager": "pnpm@10.33.0"
 }
