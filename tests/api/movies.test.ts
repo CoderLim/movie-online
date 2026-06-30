@@ -30,6 +30,29 @@ describe('GET /api/movies', () => {
   })
 })
 
+describe('GET /api/movies/[id]', () => {
+  it('returns 404 when movie is not found', async () => {
+    const { getDb } = await import('@/db/client')
+    vi.mocked(getDb).mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+        }),
+      }),
+    } as any)
+
+    const req = new Request('http://localhost/api/movies/999')
+    const res = await movieDetailHandler(req, { params: Promise.resolve({ id: '999' }) })
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 400 for non-numeric id', async () => {
+    const req = new Request('http://localhost/api/movies/abc')
+    const res = await movieDetailHandler(req, { params: Promise.resolve({ id: 'abc' }) })
+    expect(res.status).toBe(400)
+  })
+})
+
 describe('GET /api/movies/search', () => {
   it('returns 400 when q param is missing', async () => {
     const req = new Request('http://localhost/api/movies/search')

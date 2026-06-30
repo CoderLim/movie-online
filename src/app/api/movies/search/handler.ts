@@ -9,11 +9,13 @@ export async function movieSearchHandler(req: Request): Promise<Response> {
     return Response.json({ error: 'Missing q parameter' }, { status: 400 })
   }
 
+  // Escape LIKE wildcards in user input to prevent unintended pattern matching
+  const escaped = q.replace(/%/g, '\\%').replace(/_/g, '\\_')
   const db = getDb()
   const results = await db
     .select()
     .from(movies)
-    .where(like(movies.title, `%${q}%`))
+    .where(like(movies.title, `%${escaped}%`))
     .limit(20)
 
   return Response.json({ results })
