@@ -30,6 +30,8 @@ function daysSince(dateStr: string): number {
 
 function shouldCheck(lastCheckedAt: string | null, theaterEndDate: string): boolean {
   const days = daysSince(theaterEndDate)
+  // Only check movies that have actually left theaters
+  if (days < 0) return false
   const interval = days <= 30 ? 1 : days <= 90 ? 3 : 7
   if (!lastCheckedAt) return true
   const daysSinceCheck = daysSince(lastCheckedAt)
@@ -42,9 +44,10 @@ async function checkPlatform(
 ): Promise<{ status: 'available' | 'not_available'; play_url?: string }> {
   const page = await fetchWithBrowser(platform.searchUrl(movie.title))
   try {
-    const result = await page.evaluate((title: string) => {
+    // Return all candidates so matchesMovie can evaluate each one
+    const candidates = await page.evaluate(() => {
       const items = Array.from(document.querySelectorAll('[class*="result"], [class*="item"], [class*="card"]')).slice(0, 5)
-      for (const item of items) {
+      return items.map(item => {
         const titleEl = item.querySelector('[class*="title"], h3, h2') as HTMLElement | null
         const rawTitle = titleEl?.textContent?.trim() ?? ''
         const yearEl = item.querySelector('[class*="year"], [class*="date"]')
@@ -63,26 +66,27 @@ async function checkPlatform(
         const link = (item.querySelector('a') as HTMLAnchorElement | null)?.href ?? ''
 
         return { title: rawTitle, year, type, durationMinutes, status, link }
+      })
+    })
+
+    // Check all candidates; return first match
+    for (const candidate of candidates) {
+      const matches = matchesMovie(
+        { title: movie.title, releaseDate: movie.release_date },
+        {
+          title: candidate.title,
+          year: candidate.year,
+          type: candidate.type === 'movie' ? 'movie' : 'other',
+          durationMinutes: candidate.durationMinutes,
+          status: candidate.status,
+        } as PlatformResult
+      )
+      if (matches) {
+        return { status: 'available', play_url: candidate.link }
       }
-      return null
-    }, movie.title)
+    }
 
-    if (!result) return { status: 'not_available' }
-
-    const matches = matchesMovie(
-      { title: movie.title, releaseDate: movie.release_date },
-      {
-        title: result.title,
-        year: result.year,
-        type: result.type === 'movie' ? 'movie' : 'other',
-        durationMinutes: result.durationMinutes,
-        status: result.status,
-      } as PlatformResult
-    )
-
-    return matches
-      ? { status: 'available', play_url: result.link }
-      : { status: 'not_available' }
+    return { status: 'not_available' }
   } finally {
     await page.close()
   }
