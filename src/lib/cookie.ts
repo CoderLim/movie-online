@@ -1,5 +1,4 @@
 import { cookies } from 'next/headers'
-import { randomUUID } from 'crypto'
 
 const COOKIE_NAME = 'user_token'
 const COOKIE_OPTIONS = {
@@ -16,7 +15,7 @@ export async function getUserToken(): Promise<string> {
   const existing = cookieStore.get(COOKIE_NAME)
   if (existing) return existing.value
 
-  const token = randomUUID()
+  const token = crypto.randomUUID()  // Web Crypto API (available in both edge and Node)
   try {
     cookieStore.set(COOKIE_NAME, token, COOKIE_OPTIONS)
   } catch {
