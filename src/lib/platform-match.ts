@@ -1,9 +1,9 @@
-// Strips punctuation and normalizes Unicode for title comparison
+// Strips all Unicode punctuation and whitespace, normalizes for comparison
 function normalizeTitle(title: string): string {
   return title
-    .replace(/[！!，,。.？?【】「」《》\s]/g, '')  // strip common punctuation + whitespace
+    .normalize('NFKC')           // full-width → half-width first
+    .replace(/[\p{P}\s]/gu, '')  // strip all Unicode punctuation + whitespace
     .toLowerCase()
-    .normalize('NFKC')  // full-width → half-width
 }
 
 export interface PlatformResult {
@@ -23,6 +23,7 @@ const AVAILABLE_STATUSES = new Set(['available', 'vip', 'free'])
 
 export function matchesMovie(movie: MovieInfo, result: PlatformResult): boolean {
   const movieYear = new Date(movie.releaseDate).getFullYear()
+  if (isNaN(movieYear)) return false  // guard against malformed releaseDate
 
   // Criterion 1: title match (normalized)
   if (normalizeTitle(movie.title) !== normalizeTitle(result.title)) return false

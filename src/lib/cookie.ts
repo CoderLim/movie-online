@@ -17,6 +17,12 @@ export async function getUserToken(): Promise<string> {
   if (existing) return existing.value
 
   const token = randomUUID()
-  cookieStore.set(COOKIE_NAME, token, COOKIE_OPTIONS)
+  try {
+    cookieStore.set(COOKIE_NAME, token, COOKIE_OPTIONS)
+  } catch {
+    // set() can throw if response headers are already sent (e.g. cached Server Component)
+    // Return the token anyway — caller can still use it for this request
+    console.error('[cookie] Failed to set user_token cookie — headers may already be sent')
+  }
   return token
 }
