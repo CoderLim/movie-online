@@ -1,0 +1,45 @@
+name: Daily Scrape
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 08:00 Beijing (UTC+8) = 00:00 UTC
+  workflow_dispatch:        # allow manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Run Maoyan scraper
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+        run: npx tsx scripts/maoyan-scraper.ts
+
+      - name: Run Douban enricher
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+        run: npx tsx scripts/douban-enricher.ts
+
+      - name: Run Platform checker
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+        run: npx tsx scripts/platform-checker.ts
