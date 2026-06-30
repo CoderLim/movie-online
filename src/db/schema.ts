@@ -16,7 +16,7 @@ export const movies = sqliteTable('movies', {
 
 export const moviePlatforms = sqliteTable('movie_platforms', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  movieId: integer('movie_id').notNull(),
+  movieId: integer('movie_id').notNull().references(() => movies.id),
   platform: text('platform').notNull(),
   status: text('status').notNull().default('not_available'),
   playUrl: text('play_url'),
@@ -28,7 +28,7 @@ export const moviePlatforms = sqliteTable('movie_platforms', {
 
 export const watchlist = sqliteTable('watchlist', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  movieId: integer('movie_id').notNull(),
+  movieId: integer('movie_id').notNull().references(() => movies.id),
   userToken: text('user_token').notNull(),
   createdAt: text('created_at').notNull(),
 }, (t) => ({
@@ -38,4 +38,6 @@ export const watchlist = sqliteTable('watchlist', {
 export type Movie = typeof movies.$inferSelect
 export type NewMovie = typeof movies.$inferInsert
 export type MoviePlatform = typeof moviePlatforms.$inferSelect
+export type NewMoviePlatform = typeof moviePlatforms.$inferInsert
 export type Watchlist = typeof watchlist.$inferSelect
+export type NewWatchlist = typeof watchlist.$inferInsert
