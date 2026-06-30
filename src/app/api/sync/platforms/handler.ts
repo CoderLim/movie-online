@@ -1,6 +1,7 @@
 import { getDb } from '@/db/client'
 import { moviePlatforms } from '@/db/schema'
 import { validateBearerToken } from '@/lib/auth'
+import { sql } from 'drizzle-orm'
 
 export interface PlatformUpdate {
   movie_id: number
@@ -14,11 +15,21 @@ export async function syncPlatformsHandler(request: Request): Promise<Response> 
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json() as { updates: PlatformUpdate[] }
+  let body: { updates: PlatformUpdate[] }
+  try {
+    body = await request.json() as { updates: PlatformUpdate[] }
+  } catch {
+    return Response.json({ error: 'Bad Request: invalid JSON' }, { status: 400 })
+  }
+  if (!Array.isArray(body?.updates)) {
+    return Response.json({ error: 'Bad Request: updates must be an array' }, { status: 400 })
+  }
+
   const db = getDb()
   const now = new Date().toISOString()
 
   for (const u of body.updates) {
+    const newAvailableAt = u.status === 'available' ? now : null
     await db
       .insert(moviePlatforms)
       .values({
@@ -26,7 +37,7 @@ export async function syncPlatformsHandler(request: Request): Promise<Response> 
         platform: u.platform,
         status: u.status,
         playUrl: u.play_url ?? null,
-        availableAt: u.status === 'available' ? now : null,
+        availableAt: newAvailableAt,
         lastCheckedAt: now,
       })
       .onConflictDoUpdate({
@@ -34,7 +45,8 @@ export async function syncPlatformsHandler(request: Request): Promise<Response> 
         set: {
           status: u.status,
           playUrl: u.play_url ?? null,
-          availableAt: u.status === 'available' ? now : null,
+          // Preserve original availableAt if row was already available
+          availableAt: sql`CASE WHEN ${moviePlatforms.status} = 'available' THEN ${moviePlatforms.availableAt} ELSE ${newAvailableAt} END`,
           lastCheckedAt: now,
         },
       })

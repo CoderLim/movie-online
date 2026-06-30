@@ -15,7 +15,16 @@ export async function syncMoviesHandler(request: Request): Promise<Response> {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json() as { movies: MaoyanMovie[] }
+  let body: { movies: MaoyanMovie[] }
+  try {
+    body = await request.json() as { movies: MaoyanMovie[] }
+  } catch {
+    return Response.json({ error: 'Bad Request: invalid JSON' }, { status: 400 })
+  }
+  if (!Array.isArray(body?.movies)) {
+    return Response.json({ error: 'Bad Request: movies must be an array' }, { status: 400 })
+  }
+
   const db = getDb()
   const now = new Date().toISOString()
   const today = now.slice(0, 10)
