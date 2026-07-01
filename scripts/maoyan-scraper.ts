@@ -1,10 +1,12 @@
 import { apiClient } from './lib/api-client'
+import { resolveMaoyanMovie } from './lib/maoyan-api'
+import { estimateTheaterEndDate, fetchScheduledReleases } from './lib/release-schedule'
 
 interface MaoyanEntry {
   maoyan_id: string
   title: string
   release_date: string
-  theater_end_date: null  // all movies in the hot list are still in theaters
+  theater_end_date: string | null
 }
 
 interface DashboardResponse {
@@ -38,7 +40,7 @@ function parseReleaseDate(releaseInfo: string): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-async function scrapeMaoyanList(): Promise<MaoyanEntry[]> {
+async function scrapeMaoyanInTheater(): Promise<MaoyanEntry[]> {
   const res = await fetch('https://piaofang.maoyan.com/dashboard-ajax?orderType=0', {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -64,15 +66,57 @@ async function scrapeMaoyanList(): Promise<MaoyanEntry[]> {
     .filter(e => e.maoyan_id && e.title)
 }
 
+async function scrapeHistoricalReleases(): Promise<MaoyanEntry[]> {
+  const scheduled = await fetchScheduledReleases(2025, [11, 12])
+  console.log(`[maoyan-scraper] Found ${scheduled.length} scheduled releases for 2025-11/12`)
+
+  const entries: MaoyanEntry[] = []
+  for (const movie of scheduled) {
+    try {
+      const resolved = await resolveMaoyanMovie(movie.title, movie.release_date)
+      if (!resolved) {
+        console.warn(`[maoyan-scraper] Could not resolve: ${movie.title} (${movie.release_date})`)
+        continue
+      }
+
+      entries.push({
+        maoyan_id: resolved.maoyan_id,
+        title: resolved.title,
+        release_date: resolved.release_date,
+        theater_end_date: estimateTheaterEndDate(resolved.release_date),
+      })
+    } catch (err) {
+      console.warn(`[maoyan-scraper] Error resolving ${movie.title}:`, err)
+    }
+    await new Promise(r => setTimeout(r, 150))
+  }
+
+  return entries
+}
+
+function mergeMovies(historical: MaoyanEntry[], inTheater: MaoyanEntry[]): MaoyanEntry[] {
+  const map = new Map<string, MaoyanEntry>()
+  for (const movie of historical) map.set(movie.maoyan_id, movie)
+  for (const movie of inTheater) map.set(movie.maoyan_id, movie)
+  return Array.from(map.values())
+}
+
 async function main() {
   console.log('[maoyan-scraper] Starting...')
   try {
-    const movies = await scrapeMaoyanList()
-    console.log(`[maoyan-scraper] Found ${movies.length} movies in theaters`)
+    const [inTheater, historical] = await Promise.all([
+      scrapeMaoyanInTheater(),
+      scrapeHistoricalReleases(),
+    ])
 
-    if (movies.length === 0) {
-      throw new Error('No movies scraped — possible API breakage, aborting to prevent mark-left-theater wipe')
+    console.log(`[maoyan-scraper] In theater: ${inTheater.length}, historical 2025-11/12: ${historical.length}`)
+
+    if (inTheater.length === 0) {
+      throw new Error('No in-theater movies scraped — aborting to prevent mark-left-theater wipe')
     }
+
+    const movies = mergeMovies(historical, inTheater)
+    console.log(`[maoyan-scraper] Syncing ${movies.length} movies total`)
 
     await apiClient.syncMovies(movies)
     console.log('[maoyan-scraper] Synced to DB')

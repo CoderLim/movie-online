@@ -60,3 +60,68 @@ export async function fetchMaoyanDetail(movieId: string): Promise<MaoyanDetail |
 export function formatMaoyanPosterUrl(url: string): string {
   return url.replace(/\/w\.h\//, '/248.350/')
 }
+
+export interface MaoyanSearchHit {
+  id: number
+  name: string
+  release?: string
+}
+
+export async function searchMaoyanMovies(title: string): Promise<MaoyanSearchHit[]> {
+  const res = await fetch(
+    `https://apis.netstart.cn/maoyan/search/movies?keyword=${encodeURIComponent(title)}`,
+    { headers: { Accept: 'application/json' } },
+  )
+
+  if (!res.ok) return []
+
+  const data = await res.json()
+  return Array.isArray(data) ? data as MaoyanSearchHit[] : []
+}
+
+function releaseDateFromHit(hit: MaoyanSearchHit): string | null {
+  if (!hit.release) return null
+  return hit.release.slice(0, 10)
+}
+
+export async function resolveMaoyanMovie(
+  title: string,
+  releaseDate: string,
+): Promise<{ maoyan_id: string; title: string; release_date: string } | null> {
+  const hits = await searchMaoyanMovies(title)
+  if (hits.length === 0) return null
+
+  const targetYear = parseInt(releaseDate.slice(0, 4), 10)
+  const targetMonth = parseInt(releaseDate.slice(5, 7), 10)
+
+  let best: MaoyanSearchHit | null = null
+  let bestScore = -1
+
+  for (const hit of hits) {
+    const hitDate = releaseDateFromHit(hit)
+    if (!hitDate) continue
+
+    const hitYear = parseInt(hitDate.slice(0, 4), 10)
+    const hitMonth = parseInt(hitDate.slice(5, 7), 10)
+    if (Math.abs(hitYear - targetYear) > 1) continue
+
+    let score = 0
+    if (hit.name === title || hit.name.includes(title) || title.includes(hit.name)) score += 3
+    if (hitDate === releaseDate) score += 5
+    else if (hitYear === targetYear && hitMonth === targetMonth) score += 2
+    else if (hitYear === targetYear) score += 1
+
+    if (score > bestScore) {
+      bestScore = score
+      best = hit
+    }
+  }
+
+  if (!best || bestScore < 2) return null
+
+  return {
+    maoyan_id: String(best.id),
+    title: best.name,
+    release_date: releaseDateFromHit(best) ?? releaseDate,
+  }
+}
