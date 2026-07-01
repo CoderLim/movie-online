@@ -1,6 +1,6 @@
 import { getDb } from '@/db/client'
 import { movies, moviePlatforms } from '@/db/schema'
-import { eq, isNull, isNotNull } from 'drizzle-orm'
+import { eq, isNull, isNotNull, or } from 'drizzle-orm'
 import { validateBearerToken } from '@/lib/auth'
 
 export async function moviesListHandler(req: Request): Promise<Response> {
@@ -12,7 +12,9 @@ export async function moviesListHandler(req: Request): Promise<Response> {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const db = getDb()
-    const rows = await db.select().from(movies).where(isNull(movies.doubanId)).limit(50)
+    const rows = await db.select().from(movies)
+      .where(or(isNull(movies.doubanId), isNull(movies.posterUrl)))
+      .limit(50)
     return Response.json({ movies: rows.map(m => ({
       id: m.id, maoyan_id: m.maoyanId, title: m.title, release_date: m.releaseDate
     }))})

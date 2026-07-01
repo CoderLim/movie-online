@@ -22,7 +22,7 @@ export async function fetchWithBrowser(url: string): Promise<Page> {
     'Accept-Language': 'zh-CN,zh;q=0.9',
   })
   try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 })
   } catch (err) {
     await page.close()
     throw err

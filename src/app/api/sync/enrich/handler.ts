@@ -30,15 +30,15 @@ export async function syncEnrichHandler(request: Request): Promise<Response> {
   const now = new Date().toISOString()
 
   for (const m of body.movies) {
+    const updates: Partial<typeof movies.$inferInsert> = { updatedAt: now }
+    if (m.douban_id) updates.doubanId = m.douban_id
+    if (m.poster_url) updates.posterUrl = m.poster_url
+    if (m.rating > 0) updates.rating = m.rating
+    if (m.description) updates.description = m.description
+
     await db
       .update(movies)
-      .set({
-        doubanId: m.douban_id,
-        posterUrl: m.poster_url,
-        rating: m.rating,
-        description: m.description,
-        updatedAt: now,
-      })
+      .set(updates)
       .where(eq(movies.maoyanId, m.maoyan_id))
   }
 
