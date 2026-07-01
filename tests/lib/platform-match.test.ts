@@ -73,4 +73,14 @@ describe('matchesMovie', () => {
       status: 'available',
     })).toBe(true)
   })
+
+  it('matches title with HTML highlight tags', () => {
+    expect(matchesMovie(baseMovie, {
+      title: '<em class="keyword">哪吒之魔童降世</em>',
+      year: 2019,
+      type: 'movie',
+      durationMinutes: 110,
+      status: 'available',
+    })).toBe(true)
+  })
 })

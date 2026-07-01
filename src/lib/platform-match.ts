@@ -1,6 +1,7 @@
 // Strips all Unicode punctuation and whitespace, normalizes for comparison
 function normalizeTitle(title: string): string {
   return title
+    .replace(/<[^>]*>/g, '')      // strip HTML tags from search highlights
     .normalize('NFKC')           // full-width → half-width first
     .replace(/[\p{P}\s]/gu, '')  // strip all Unicode punctuation + whitespace
     .toLowerCase()
