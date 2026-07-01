@@ -105,7 +105,8 @@ async function main() {
     const movies = mergeMovies(historical, inTheater)
     console.log(`[maoyan-scraper] Syncing ${movies.length} movies total`)
 
-    await apiClient.syncMovies(movies)
+    await apiClient.syncMoviesBatched(historical, 25, { markLeftTheater: false })
+    await apiClient.syncMovies(inTheater, { markLeftTheater: true })
     console.log('[maoyan-scraper] Synced to DB')
   } catch (err) {
     console.error('[maoyan-scraper] FAILED:', err)

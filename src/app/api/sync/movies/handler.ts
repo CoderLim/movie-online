@@ -15,15 +15,17 @@ export async function syncMoviesHandler(request: Request): Promise<Response> {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: { movies: MaoyanMovie[] }
+  let body: { movies: MaoyanMovie[]; mark_left_theater?: boolean }
   try {
-    body = await request.json() as { movies: MaoyanMovie[] }
+    body = await request.json() as { movies: MaoyanMovie[]; mark_left_theater?: boolean }
   } catch {
     return Response.json({ error: 'Bad Request: invalid JSON' }, { status: 400 })
   }
   if (!Array.isArray(body?.movies)) {
     return Response.json({ error: 'Bad Request: movies must be an array' }, { status: 400 })
   }
+
+  const markLeftTheater = body.mark_left_theater !== false
 
   const db = getDb()
   const now = new Date().toISOString()
@@ -52,7 +54,7 @@ export async function syncMoviesHandler(request: Request): Promise<Response> {
   }
 
   // Mark movies that have left theaters (not in incoming list)
-  if (body.movies.length > 0) {
+  if (markLeftTheater && body.movies.length > 0) {
     const incomingIds = body.movies.map(m => m.maoyan_id)
     await db
       .update(movies)
