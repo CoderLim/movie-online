@@ -67,7 +67,12 @@ async function main() {
     for (const platformKey of PLATFORM_KEYS) {
       const existingPlatform = movie.platforms.find(p => p.platform === platformKey)
       if (existingPlatform?.status === 'available') continue
-      if (!shouldCheck(existingPlatform?.last_checked_at ?? null, movie.theater_end_date)) continue
+      // 未上线结果可能是误报，每次运行都重检；仅对已确认上线的跳过
+      const needsInterval =
+        existingPlatform?.status === 'not_available'
+          ? false
+          : !shouldCheck(existingPlatform?.last_checked_at ?? null, movie.theater_end_date)
+      if (needsInterval) continue
 
       console.log(`[platform-checker] Checking ${movie.title} on ${platformKey}`)
       try {
