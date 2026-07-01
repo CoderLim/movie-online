@@ -1,6 +1,7 @@
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import { apiClient } from './lib/api-client'
-import { resolveMaoyanMovie } from './lib/maoyan-api'
-import { estimateTheaterEndDate, fetchScheduledReleases } from './lib/release-schedule'
+import { estimateTheaterEndDate } from './lib/release-schedule'
 
 interface MaoyanEntry {
   maoyan_id: string
@@ -66,32 +67,20 @@ async function scrapeMaoyanInTheater(): Promise<MaoyanEntry[]> {
     .filter(e => e.maoyan_id && e.title)
 }
 
-async function scrapeHistoricalReleases(): Promise<MaoyanEntry[]> {
-  const scheduled = await fetchScheduledReleases(2025, [11, 12])
-  console.log(`[maoyan-scraper] Found ${scheduled.length} scheduled releases for 2025-11/12`)
+function loadHistoricalReleases(): MaoyanEntry[] {
+  const file = join(import.meta.dirname, 'data/releases-2025-q4.json')
+  const raw = JSON.parse(readFileSync(file, 'utf-8')) as Array<{
+    maoyan_id: string
+    title: string
+    release_date: string
+  }>
 
-  const entries: MaoyanEntry[] = []
-  for (const movie of scheduled) {
-    try {
-      const resolved = await resolveMaoyanMovie(movie.title, movie.release_date)
-      if (!resolved) {
-        console.warn(`[maoyan-scraper] Could not resolve: ${movie.title} (${movie.release_date})`)
-        continue
-      }
-
-      entries.push({
-        maoyan_id: resolved.maoyan_id,
-        title: resolved.title,
-        release_date: resolved.release_date,
-        theater_end_date: estimateTheaterEndDate(resolved.release_date),
-      })
-    } catch (err) {
-      console.warn(`[maoyan-scraper] Error resolving ${movie.title}:`, err)
-    }
-    await new Promise(r => setTimeout(r, 150))
-  }
-
-  return entries
+  return raw.map(movie => ({
+    maoyan_id: movie.maoyan_id,
+    title: movie.title,
+    release_date: movie.release_date,
+    theater_end_date: estimateTheaterEndDate(movie.release_date),
+  }))
 }
 
 function mergeMovies(historical: MaoyanEntry[], inTheater: MaoyanEntry[]): MaoyanEntry[] {
@@ -104,10 +93,8 @@ function mergeMovies(historical: MaoyanEntry[], inTheater: MaoyanEntry[]): Maoya
 async function main() {
   console.log('[maoyan-scraper] Starting...')
   try {
-    const [inTheater, historical] = await Promise.all([
-      scrapeMaoyanInTheater(),
-      scrapeHistoricalReleases(),
-    ])
+    const inTheater = await scrapeMaoyanInTheater()
+    const historical = loadHistoricalReleases()
 
     console.log(`[maoyan-scraper] In theater: ${inTheater.length}, historical 2025-11/12: ${historical.length}`)
 
