@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { getRequestContext } from '@cloudflare/next-on-pages'
 
 vi.mock('@/db/client', () => ({
   getDb: vi.fn(),
@@ -10,6 +11,25 @@ vi.mock('@cloudflare/next-on-pages', () => ({
 import { syncMoviesHandler } from '@/app/api/sync/movies/handler'
 import { syncEnrichHandler } from '@/app/api/sync/enrich/handler'
 import { syncPlatformsHandler } from '@/app/api/sync/platforms/handler'
+import { validateBearerToken } from '@/lib/auth'
+
+beforeEach(() => {
+  delete process.env.SYNC_SECRET
+  vi.mocked(getRequestContext).mockReturnValue({ env: { DB: {} } } as any)
+})
+
+describe('validateBearerToken', () => {
+  it('uses Cloudflare runtime env before process.env', () => {
+    process.env.SYNC_SECRET = 'local-secret'
+    vi.mocked(getRequestContext).mockReturnValue({ env: { DB: {}, SYNC_SECRET: 'cloudflare-secret' } } as any)
+
+    const req = new Request('http://localhost/api/sync/movies', {
+      headers: { Authorization: 'Bearer cloudflare-secret' },
+    })
+
+    expect(validateBearerToken(req)).toBe(true)
+  })
+})
 
 describe('POST /api/sync/movies', () => {
   it('returns 401 without valid Bearer token', async () => {

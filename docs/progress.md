@@ -1,7 +1,7 @@
 # Movie Online — 开发进度
 
 > 更新时间：2026-06-30
-> 分支：`feat/movie-online-impl`
+> 分支：`main`
 
 ## 完成情况
 
@@ -20,68 +20,49 @@
 | 11 | Home Page（3-section 电影列表 + 搜索）| ✅ APPROVED |
 | 12 | Movie Detail Page（平台状态 + 追踪按钮 + 估算下映日期）| ✅ APPROVED |
 | 13 | Watchlist Page（Cookie 警告 + 移除按钮）| ✅ APPROVED |
-| 14 | Deployment（Cloudflare D1 + Pages 部署）| ⏳ **待手动操作** |
+| 14 | Deployment（Cloudflare D1 + Pages 部署）| ✅ **已部署**（GitHub Secrets 待配置）|
 
-**测试：20/20 passing（5 test files）**
+**测试：22/24 passing**（schema 测试因 better-sqlite3 native build 需 `pnpm approve-builds`）
 
 ---
 
-## Task 14：部署步骤（待完成）
+## 生产环境
 
-需要手动执行以下操作：
+| 项目 | 值 |
+|------|-----|
+| **Pages URL** | https://movie-online-4d6.pages.dev |
+| **D1 database_id** | `adb41511-e946-44d5-875c-074c02a661a9` |
+| **Migration** | ✅ 已应用到 remote |
+| **SYNC_SECRET** | ✅ 已通过 `wrangler pages secret put` 设置 |
 
-### 1. 创建 Cloudflare D1 数据库
+验证：`POST /api/sync/movies` 返回 `{"ok":true,"count":0}` ✅
 
-```bash
-cd .worktrees/impl
-pnpm wrangler d1 create movie-online
-```
+---
 
-将输出的 `database_id` 填入 `wrangler.toml`：
-```toml
-[[d1_databases]]
-binding = "DB"
-database_name = "movie-online"
-database_id = "YOUR_REAL_ID_HERE"   # ← 填这里
-```
+## 剩余手动步骤
 
-### 2. 应用 migration 到生产环境
-
-```bash
-pnpm db:migrate:prod
-```
-
-### 3. 在 Cloudflare Pages 设置环境变量
-
-Dashboard → Pages → movie-online → Settings → Environment Variables：
-- `SYNC_SECRET` = 一个随机字符串（`openssl rand -hex 32` 生成）
-
-### 4. 部署
-
-```bash
-pnpm deploy
-```
-
-部署成功后得到 URL：`https://movie-online.pages.dev`
-
-### 5. 配置 GitHub Secrets
+### 1. 配置 GitHub Secrets
 
 GitHub → Settings → Secrets → Actions：
-- `APP_URL` = `https://movie-online.pages.dev`
-- `SYNC_SECRET` = 与 Cloudflare 一致
 
-### 6. 手动触发一次 GitHub Actions
+- `APP_URL` = `https://movie-online-4d6.pages.dev`
+- `SYNC_SECRET` = （与 Cloudflare Pages 中一致，见本地 `.env.local` 或部署时生成的值）
+
+> 本地可用 `gh auth login` 后执行：
+> ```bash
+> gh secret set APP_URL --body "https://movie-online-4d6.pages.dev"
+> gh secret set SYNC_SECRET --body "<your-secret>"
+> ```
+
+### 2. 手动触发 GitHub Actions
 
 GitHub → Actions → Daily Scrape → Run workflow
 
----
+### 3. 本地验证 scraper（可选）
 
-## 技术说明
-
-- **分支**：`feat/movie-online-impl`（未合并到 main）
-- **Worktree**：`.worktrees/impl/`
-- **所有代码**：已推送到 `git@github.com:CoderLim/movie-online.git`
-- **PR 链接**：https://github.com/CoderLim/movie-online/pull/new/feat/movie-online-impl
+```bash
+APP_URL=https://movie-online-4d6.pages.dev SYNC_SECRET=<your-secret> npx tsx scripts/maoyan-scraper.ts
+```
 
 ---
 
@@ -105,6 +86,6 @@ movie-online/
 │   ├── maoyan-scraper.ts
 │   ├── douban-enricher.ts
 │   └── platform-checker.ts
-├── tests/          20 个测试，全部通过
+├── tests/          24 个测试
 └── .github/workflows/scrape.yml  每日 08:00 北京时间
 ```

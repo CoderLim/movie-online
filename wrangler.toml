@@ -6,5 +6,5 @@ pages_build_output_dir = ".vercel/output/static"
 [[d1_databases]]
 binding = "DB"
 database_name = "movie-online"
-database_id = "REPLACE_WITH_REAL_ID"
+database_id = "adb41511-e946-44d5-875c-074c02a661a9"
 migrations_dir = "drizzle/migrations"
